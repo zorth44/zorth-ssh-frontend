@@ -9,7 +9,7 @@ import {
 } from '@/types/sftp';
 
 class SFTPService {
-  private baseUrl = 'http://localhost:8080';
+  private baseUrl = 'http://localhost:8080/api';
   private stompClient: Client | null = null;
   private subscriptions = new Map<string, any>();
 
@@ -50,7 +50,7 @@ class SFTPService {
 
   // Connect to SFTP and get initial file listing
   async connectAndBrowse(profileId: number, initialPath: string = '/'): Promise<SFTPConnectionData> {
-    const response = await fetch(`${this.baseUrl}/api/sftp/${profileId}/connect-and-browse?initialPath=${encodeURIComponent(initialPath)}`, {
+    const response = await fetch(`${this.baseUrl}/sftp/${profileId}/connect-and-browse?initialPath=${encodeURIComponent(initialPath)}`, {
       method: 'POST',
     });
 
@@ -70,7 +70,7 @@ class SFTPService {
   // List files in a directory
   async listFiles(profileId: number, path: string): Promise<SFTPFileInfo[]> {
     const response = await fetch(
-      `${this.baseUrl}/api/sftp/${profileId}/list?path=${encodeURIComponent(path)}`
+      `${this.baseUrl}/sftp/${profileId}/list?path=${encodeURIComponent(path)}`
     );
 
     if (!response.ok) {
@@ -101,7 +101,7 @@ class SFTPService {
       formData.append('file', file);
 
       const response = await fetch(
-        `${this.baseUrl}/api/sftp/${profileId}/upload?path=${encodeURIComponent(remotePath)}`,
+        `${this.baseUrl}/sftp/${profileId}/upload?path=${encodeURIComponent(remotePath)}`,
         {
           method: 'POST',
           body: formData,
@@ -133,23 +133,45 @@ class SFTPService {
   }
 
   // Download file
-  downloadFile(profileId: number, filePath: string, fileName: string): void {
-    const downloadUrl = `${this.baseUrl}/api/sftp/${profileId}/download?path=${encodeURIComponent(filePath)}`;
-    
-    // Create hidden download link
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = fileName;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  async downloadFile(profileId: number, filePath: string, fileName: string): Promise<void> {
+    try {
+      const downloadUrl = `${this.baseUrl}/sftp/${profileId}/download?path=${encodeURIComponent(filePath)}`;
+      
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.statusText}`);
+      }
+
+      // Get the file as a blob
+      const blob = await response.blob();
+      
+      // Create a download link
+      const link = document.createElement('a');
+      const url = window.URL.createObjectURL(blob);
+      link.href = url;
+      link.download = fileName;
+      link.style.display = 'none';
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+      throw error;
+    }
   }
 
   // Create directory
   async createDirectory(profileId: number, path: string): Promise<void> {
     const response = await fetch(
-      `${this.baseUrl}/api/sftp/${profileId}/mkdir?path=${encodeURIComponent(path)}`,
+      `${this.baseUrl}/sftp/${profileId}/mkdir?path=${encodeURIComponent(path)}`,
       { method: 'POST' }
     );
 
@@ -167,7 +189,7 @@ class SFTPService {
   // Delete file or directory
   async deleteFile(profileId: number, path: string, isDirectory: boolean): Promise<void> {
     const response = await fetch(
-      `${this.baseUrl}/api/sftp/${profileId}/delete?path=${encodeURIComponent(path)}&isDirectory=${isDirectory}`,
+      `${this.baseUrl}/sftp/${profileId}/delete?path=${encodeURIComponent(path)}&isDirectory=${isDirectory}`,
       { method: 'DELETE' }
     );
 
@@ -184,7 +206,7 @@ class SFTPService {
 
   // Rename/move file
   async renameFile(profileId: number, oldPath: string, newPath: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/sftp/${profileId}/rename`, {
+    const response = await fetch(`${this.baseUrl}/sftp/${profileId}/rename`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -245,7 +267,7 @@ class SFTPService {
   // Get current progress for a transfer
   async getProgress(transferId: string): Promise<TransferProgress | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/sftp/progress/${transferId}`);
+      const response = await fetch(`${this.baseUrl}/sftp/progress/${transferId}`);
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -265,7 +287,7 @@ class SFTPService {
   // Cancel a transfer
   async cancelTransfer(transferId: string): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/sftp/progress/${transferId}/cancel`, {
+      const response = await fetch(`${this.baseUrl}/sftp/progress/${transferId}/cancel`, {
         method: 'POST',
       });
 

@@ -169,16 +169,25 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
     }
   };
 
-  const handleFileDownload = (file: SFTPFileInfo) => {
+  const handleFileDownload = async (file: SFTPFileInfo) => {
     if (file.isDirectory) return;
     
     try {
-      sftpService.downloadFile(profile.id, file.path, file.name);
       toast({
         title: '下载开始',
         description: `正在下载 ${file.name}`,
         status: 'info',
         duration: 2000,
+        isClosable: true,
+      });
+
+      await sftpService.downloadFile(profile.id, file.path, file.name);
+      
+      toast({
+        title: '下载完成',
+        description: `文件 ${file.name} 下载成功`,
+        status: 'success',
+        duration: 3000,
         isClosable: true,
       });
     } catch (error) {
