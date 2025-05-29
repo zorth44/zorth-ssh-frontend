@@ -58,7 +58,11 @@ const globalStyles = `
 `;
 
 // 单个终端会话组件
-const TerminalSession: React.FC<{ session: TerminalSession; isActive: boolean }> = ({ session, isActive }) => {
+const TerminalSession: React.FC<{ 
+  session: TerminalSession; 
+  isActive: boolean; 
+  onClientRef?: (sessionId: string, client: Client | null) => void;
+}> = ({ session, isActive, onClientRef }) => {
   const [connected, setConnected] = useState(false);
   const [sshConnected, setSshConnected] = useState(false);
   const clientRef = useRef<Client | null>(null);
@@ -423,6 +427,13 @@ const TerminalSession: React.FC<{ session: TerminalSession; isActive: boolean }>
     }
   }, [isActive, terminal, session.profileId, connected, connectWebSocket]);
 
+  // Notify parent about client ref for cleanup
+  useEffect(() => {
+    if (onClientRef && sessionId) {
+      onClientRef(sessionId, clientRef.current);
+    }
+  }, [onClientRef, sessionId, clientRef.current]);
+
   return (
     <Box
       h="100%"
@@ -454,6 +465,8 @@ const TerminalSession: React.FC<{ session: TerminalSession; isActive: boolean }>
   );
 };
 
+TerminalSession.displayName = 'TerminalSession';
+
 const TerminalPage: React.FC = () => {
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
@@ -461,6 +474,7 @@ const TerminalPage: React.FC = () => {
   const [profiles, setProfiles] = useState<SSHProfile[]>([]);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const terminalRefs = useRef<{ [key: string]: { close: () => void } }>({});
 
   const profileId = searchParams.get('profileId');
   const nickname = searchParams.get('nickname');
@@ -527,8 +541,18 @@ const TerminalPage: React.FC = () => {
 
   // 关闭所有会话
   const handleCloseAll = () => {
+    // Close all WebSocket connections
+    sessions.forEach(session => {
+      const terminalRef = terminalRefs.current[session.id];
+      if (terminalRef) {
+        terminalRef.close();
+      }
+    });
+    
+    // Clear sessions and navigate to profiles page
     setSessions([]);
     setActiveTabIndex(0);
+    router.push('/profiles');
   };
 
   return (
@@ -624,6 +648,21 @@ const TerminalPage: React.FC = () => {
                           <TerminalSession
                             session={session}
                             isActive={index === activeTabIndex}
+                            onClientRef={(sessionId, client) => {
+                              if (client) {
+                                terminalRefs.current[sessionId] = { 
+                                  close: () => {
+                                    try {
+                                      client.deactivate();
+                                    } catch (error) {
+                                      console.warn('Error deactivating WebSocket client:', error);
+                                    }
+                                  }
+                                };
+                              } else {
+                                delete terminalRefs.current[sessionId];
+                              }
+                            }}
                           />
                         </Box>
                       </Box>
