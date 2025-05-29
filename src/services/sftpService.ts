@@ -16,16 +16,18 @@ class SFTPService {
   // Initialize WebSocket connection
   async connectWebSocket(): Promise<void> {
     if (this.stompClient?.connected) {
+      console.log('WebSocket already connected');
       return;
     }
 
+    console.log('Connecting to WebSocket...');
     return new Promise((resolve, reject) => {
       const socket = new SockJS(`${this.baseUrl}/ws`);
       this.stompClient = new Client({
         webSocketFactory: () => socket,
         debug: (str) => console.log('STOMP Debug:', str),
         onConnect: () => {
-          console.log('SFTP WebSocket connected');
+          console.log('SFTP WebSocket connected successfully');
           resolve();
         },
         onStompError: (frame) => {
@@ -94,36 +96,40 @@ class SFTPService {
     onProgress?: (progress: TransferProgress) => void
   ): Promise<string> {
     try {
-      // Ensure WebSocket is connected
-      await this.connectWebSocket();
+      // Ensure WebSocket is connected before proceeding
+      if (onProgress) {
+        await this.connectWebSocket();
+      }
 
+      // 1. Prepare upload and get transferId
+      const prepareRes = await fetch(
+        `${this.baseUrl}/sftp/${profileId}/prepare-upload?path=${encodeURIComponent(remotePath)}&fileName=${encodeURIComponent(file.name)}&totalBytes=${file.size}`,
+        { method: 'POST' }
+      );
+      const prepareResult: SFTPResponse<{ transferId: string }> = await prepareRes.json();
+      if (!prepareResult.success) throw new Error(prepareResult.message);
+      const transferId = prepareResult.data.transferId;
+
+      // 2. Subscribe to progress BEFORE starting the upload
+      if (onProgress) {
+        this.subscribeToProgress(transferId, (progress) => {
+          onProgress(progress);
+          // Unsubscribe when transfer is completed or failed
+          if (progress.status === 'COMPLETED' || progress.status === 'FAILED') {
+            this.unsubscribeFromProgress(transferId);
+          }
+        });
+      }
+
+      // 3. Upload file, passing transferId
       const formData = new FormData();
       formData.append('file', file);
-
-      const response = await fetch(
-        `${this.baseUrl}/sftp/${profileId}/upload?path=${encodeURIComponent(remotePath)}`,
-        {
-          method: 'POST',
-          body: formData,
-        }
+      const uploadRes = await fetch(
+        `${this.baseUrl}/sftp/${profileId}/upload?path=${encodeURIComponent(remotePath)}&transferId=${transferId}`,
+        { method: 'POST', body: formData }
       );
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
-
-      const result: SFTPResponse<UploadResponse> = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.message);
-      }
-
-      const transferId = result.data.transferId;
-
-      // Subscribe to progress updates if callback provided
-      if (onProgress) {
-        this.subscribeToProgress(transferId, onProgress);
-      }
+      const uploadResult: SFTPResponse<any> = await uploadRes.json();
+      if (!uploadResult.success) throw new Error(uploadResult.message);
 
       return transferId;
     } catch (error) {
@@ -133,8 +139,16 @@ class SFTPService {
   }
 
   // Download file
-  async downloadFile(profileId: number, filePath: string, fileName: string): Promise<void> {
+  async downloadFile(
+    profileId: number, 
+    filePath: string, 
+    fileName: string,
+    onProgress?: (progress: TransferProgress) => void
+  ): Promise<void> {
     try {
+      // Ensure WebSocket is connected
+      await this.connectWebSocket();
+
       const downloadUrl = `${this.baseUrl}/sftp/${profileId}/download?path=${encodeURIComponent(filePath)}`;
       
       const response = await fetch(downloadUrl, {
@@ -143,6 +157,14 @@ class SFTPService {
 
       if (!response.ok) {
         throw new Error(`Download failed: ${response.statusText}`);
+      }
+
+      // Get the transfer ID from response headers
+      const transferId = response.headers.get('X-Transfer-Id');
+      
+      // Subscribe to progress updates if callback provided and transfer ID exists
+      if (onProgress && transferId) {
+        this.subscribeToProgress(transferId, onProgress);
       }
 
       // Get the file as a blob
@@ -226,41 +248,44 @@ class SFTPService {
   }
 
   // Subscribe to transfer progress updates
-  subscribeToProgress(transferId: string, callback: (progress: TransferProgress) => void): void {
+  private subscribeToProgress(transferId: string, callback: (progress: TransferProgress) => void): void {
+    console.log('Attempting to subscribe to progress for transfer:', transferId);
+    
     if (!this.stompClient?.connected) {
-      console.warn('WebSocket not connected, cannot subscribe to progress');
+      console.error('WebSocket not connected');
       return;
     }
 
     const destination = `/topic/transfer-progress/${transferId}`;
-    
-    const subscription = this.stompClient.subscribe(destination, (message) => {
-      try {
+    console.log('Subscribing to destination:', destination);
+
+    try {
+      const subscription = this.stompClient.subscribe(destination, (message) => {
         const progress: TransferProgress = JSON.parse(message.body);
+        console.log('Received progress update:', progress);
         callback(progress);
 
-        // Auto-unsubscribe when transfer is complete
-        if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(progress.status)) {
-          setTimeout(() => {
-            this.unsubscribeFromProgress(transferId);
-          }, 5000);
+        // Only unsubscribe if the transfer is completed or failed
+        if (progress.status === 'COMPLETED' || progress.status === 'FAILED' || progress.status === 'CANCELLED') {
+          console.log(`Transfer ${transferId} ${progress.status.toLowerCase()}, unsubscribing...`);
+          this.unsubscribeFromProgress(transferId);
         }
-      } catch (error) {
-        console.error('Error parsing progress message:', error);
-      }
-    });
+      });
 
-    this.subscriptions.set(transferId, subscription);
-    console.log(`Subscribed to progress updates for transfer: ${transferId}`);
+      this.subscriptions.set(transferId, subscription);
+      console.log('Successfully subscribed to progress updates for transfer:', transferId);
+    } catch (error) {
+      console.error('Error subscribing to progress updates:', error);
+    }
   }
 
-  // Unsubscribe from progress updates
+  // Unsubscribe from transfer progress updates
   unsubscribeFromProgress(transferId: string): void {
     const subscription = this.subscriptions.get(transferId);
     if (subscription) {
       subscription.unsubscribe();
       this.subscriptions.delete(transferId);
-      console.log(`Unsubscribed from progress updates for transfer: ${transferId}`);
+      console.log('Unsubscribed from progress updates for transfer:', transferId);
     }
   }
 
