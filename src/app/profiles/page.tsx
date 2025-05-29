@@ -15,7 +15,12 @@ import {
   Badge,
   Flex,
   Spacer,
+  Icon,
 } from '@chakra-ui/react';
+import { FiTerminal, FiFolder } from 'react-icons/fi';
+import { SFTPFileBrowser } from '@/components/SFTPFileBrowser';
+import { sftpService } from '@/services/sftpService';
+import { SFTPConnectionData } from '@/types/sftp';
 
 interface SSHProfile {
   id: number;
@@ -31,6 +36,9 @@ interface SSHProfile {
 export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<SSHProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProfile, setSelectedProfile] = useState<SSHProfile | null>(null);
+  const [showSFTPBrowser, setShowSFTPBrowser] = useState(false);
+  const [sftpInitialData, setSftpInitialData] = useState<SFTPConnectionData | undefined>(undefined);
   const router = useRouter();
   const toast = useToast();
 
@@ -76,6 +84,47 @@ export default function ProfilesPage() {
   const handleConnect = (profileId: number, nickname: string) => {
     // 跳转到终端页面，并传递profile ID
     router.push(`/terminal?profileId=${profileId}&nickname=${encodeURIComponent(nickname)}`);
+  };
+
+  const handleSFTPConnect = async (profile: SSHProfile) => {
+    try {
+      // Show loading toast
+      const loadingToast = toast({
+        title: '正在连接SFTP...',
+        description: `连接到 ${profile.nickname}`,
+        status: 'loading',
+        duration: null,
+        isClosable: false,
+      });
+
+      // Connect to SFTP and get initial data
+      const data = await sftpService.connectAndBrowse(profile.id);
+      
+      // Close loading toast
+      toast.close(loadingToast);
+      
+      // Set profile and initial data
+      setSelectedProfile(profile);
+      setSftpInitialData(data);
+      setShowSFTPBrowser(true);
+      
+      toast({
+        title: 'SFTP连接成功',
+        description: `已连接到 ${profile.nickname}`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('SFTP connection error:', error);
+      toast({
+        title: 'SFTP连接失败',
+        description: error instanceof Error ? error.message : '未知错误',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
   };
 
   const handleEdit = (profileId: number) => {
@@ -192,9 +241,18 @@ export default function ProfilesPage() {
                     <Button
                       size="sm"
                       colorScheme="green"
+                      leftIcon={<Icon as={FiTerminal} />}
                       onClick={() => handleConnect(profile.id, profile.nickname)}
                     >
-                      连接
+                      SSH终端
+                    </Button>
+                    <Button
+                      size="sm"
+                      colorScheme="blue"
+                      leftIcon={<Icon as={FiFolder} />}
+                      onClick={() => handleSFTPConnect(profile)}
+                    >
+                      SFTP浏览器
                     </Button>
                     <Button
                       size="sm"
@@ -218,6 +276,20 @@ export default function ProfilesPage() {
             </Card>
           ))}
         </VStack>
+      )}
+
+      {/* SFTP File Browser Modal */}
+      {selectedProfile && (
+        <SFTPFileBrowser
+          isOpen={showSFTPBrowser}
+          onClose={() => {
+            setShowSFTPBrowser(false);
+            setSelectedProfile(null);
+            setSftpInitialData(undefined);
+          }}
+          profile={selectedProfile}
+          initialData={sftpInitialData}
+        />
       )}
     </Box>
   );
