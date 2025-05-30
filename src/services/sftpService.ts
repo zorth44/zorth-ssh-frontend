@@ -138,44 +138,18 @@ class SFTPService {
     onProgress?: (progress: TransferProgress) => void
   ): Promise<void> {
     try {
-      // Generate transferId on frontend
-      const transferId = this.generateTransferId();
-
-      // Ensure WebSocket is connected
-      if (onProgress) {
-        await this.connectWebSocket();
-        
-        // Subscribe to progress updates before starting download
-        this.subscribeToProgress(transferId, onProgress);
-      }
-
-      const downloadUrl = `${this.baseUrl}/sftp/${profileId}/download?path=${encodeURIComponent(filePath)}&transferId=${transferId}`;
+      // For downloads, we'll let the browser handle it directly to show native progress
+      const downloadUrl = `${this.baseUrl}/sftp/${profileId}/download?path=${encodeURIComponent(filePath)}`;
       
-      const response = await fetch(downloadUrl, {
-        method: 'GET',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Download failed: ${response.statusText}`);
-      }
-
-      // Get the file as a blob
-      const blob = await response.blob();
-      
-      // Create a download link
+      // Create a temporary link and click it to trigger browser download with progress
       const link = document.createElement('a');
-      const url = window.URL.createObjectURL(blob);
-      link.href = url;
+      link.href = downloadUrl;
       link.download = fileName;
       link.style.display = 'none';
       
-      // Trigger download
       document.body.appendChild(link);
       link.click();
-      
-      // Cleanup
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download error:', error);
       throw error;

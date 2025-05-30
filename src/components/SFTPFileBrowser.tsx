@@ -222,81 +222,23 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
   const handleFileDownload = async (file: SFTPFileInfo) => {
     if (file.isDirectory) return;
     
-    // Generate transferId on frontend for immediate progress tracking
-    const transferId = generateTransferId();
-    
     try {
-      // Show initial transfer state immediately
-      const initialTransfer: TransferProgress = {
-        sessionId: transferId,
-        fileName: file.name,
-        operation: 'DOWNLOAD',
-        status: 'STARTING',
-        percentage: 0,
-        transferredBytes: 0,
-        totalBytes: file.size,
-        speedBytesPerSecond: 0,
-        speedFormatted: '0 B/s',
-        estimatedRemainingSeconds: 0,
-        startTime: new Date().toISOString(),
-        lastUpdate: new Date().toISOString()
-      };
-      setTransfers(prev => [...prev, initialTransfer]);
-
       toast({
         title: '下载开始',
-        description: `正在下载 ${file.name}`,
+        description: `正在下载 ${file.name}，请查看浏览器下载进度`,
         status: 'info',
-        duration: 2000,
+        duration: 3000,
         isClosable: true,
       });
 
       await sftpService.downloadFile(
         profile.id, 
         file.path, 
-        file.name,
-        (progress) => {
-          setTransfers(prev => {
-            const index = prev.findIndex(t => t.sessionId === transferId);
-            if (index >= 0) {
-              const updated = [...prev];
-              updated[index] = {
-                ...progress,
-                sessionId: transferId, // Keep our frontend transferId
-              };
-              return updated;
-            } else {
-              // If for some reason we can't find our transfer, don't create a new one
-              return prev;
-            }
-          });
-
-          // Remove completed transfers after delay
-          if (progress.status === 'COMPLETED') {
-            toast({
-              title: '下载完成',
-              description: `文件 ${file.name} 下载成功`,
-              status: 'success',
-              duration: 3000,
-              isClosable: true,
-            });
-            setTimeout(() => {
-              setTransfers(prev => prev.filter(t => t.sessionId !== transferId));
-            }, 3000);
-          } else if (progress.status === 'FAILED') {
-            toast({
-              title: '下载失败',
-              description: progress.errorMessage || '文件下载失败',
-              status: 'error',
-              duration: 5000,
-              isClosable: true,
-            });
-            setTimeout(() => {
-              setTransfers(prev => prev.filter(t => t.sessionId !== transferId));
-            }, 5000);
-          }
-        }
+        file.name
       );
+
+      // Note: We can't reliably detect completion with direct browser downloads
+      // The browser will handle the download and show its own notifications
     } catch (error) {
       console.error('Download error:', error);
       toast({
@@ -306,9 +248,6 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
         duration: 3000,
         isClosable: true,
       });
-      
-      // Remove failed transfer from the list
-      setTransfers(prev => prev.filter(t => t.sessionId !== transferId));
     }
   };
 
