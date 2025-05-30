@@ -4,16 +4,22 @@
     <div class="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
       <h1 class="text-3xl font-semibold text-gray-800">SSH Profile Management</h1>
       <div class="flex items-center gap-4 w-full sm:w-auto">
-        <input
-          type="text"
-          v-model="searchTerm"
-          placeholder="Search profiles..."
-          class="px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm w-full sm:w-auto"
-        />
+        <div class="relative w-full sm:w-auto">
+          <input
+            type="text"
+            v-model="searchTerm"
+            placeholder="Search profiles..."
+            class="pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm w-full"
+          />
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <MagnifyingGlassIcon class="h-5 w-5 text-gray-400" />
+          </div>
+        </div>
         <router-link
           to="/profiles/new"
-          class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 whitespace-nowrap"
+          class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 whitespace-nowrap"
         >
+          <PlusIcon class="h-5 w-5 mr-2" />
           New Profile
         </router-link>
       </div>
@@ -27,9 +33,6 @@
     <!-- Error Message -->
     <div v-if="errorMessage" class="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
       <span class="font-medium">Error:</span> {{ errorMessage }}
-    </div>
-     <div v-if="sftpErrorMessage" class="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
-      <span class="font-medium">SFTP Error:</span> {{ sftpErrorMessage }}
     </div>
     <div v-if="successMessage" class="mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
       {{ successMessage }}
@@ -55,7 +58,7 @@
       >
         <div class="p-5 flex-grow">
           <div class="flex items-center mb-3">
-            <div :class="['w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-semibold mr-3', getAvatarBgClass(profile.nickname)]">
+            <div :class="['w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-semibold mr-3 shrink-0', getAvatarBgClass(profile.nickname)]">
               {{ profile.nickname.charAt(0).toUpperCase() }}
             </div>
             <h3 class="text-xl font-semibold text-gray-800 truncate" :title="profile.nickname">{{ profile.nickname }}</h3>
@@ -85,39 +88,43 @@
         <div class="p-3 bg-gray-50 border-t border-gray-200 grid grid-cols-2 gap-2">
           <button
             @click="handleConnectSSH(profile)"
-            class="w-full px-3 py-2 text-xs font-medium text-center text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500"
+            class="w-full inline-flex items-center justify-center px-3 py-2 text-xs font-medium text-center text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500"
           >
+            <PlayIcon class="h-4 w-4 mr-1" />
             SSH Connect
           </button>
           <button
-            @click="handleOpenSFTP(profile)"
-            class="w-full px-3 py-2 text-xs font-medium text-center text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-purple-500"
+            @click="handleOpenSFTPModal(profile)"
+            class="w-full inline-flex items-center justify-center px-3 py-2 text-xs font-medium text-center text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-purple-500"
           >
+            <FolderOpenIcon class="h-4 w-4 mr-1" />
             SFTP
           </button>
           <router-link
             :to="'/profiles/edit/' + profile.id"
-            class="w-full block text-center px-3 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400"
+            class="w-full inline-flex items-center justify-center px-3 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400"
           >
+            <PencilSquareIcon class="h-4 w-4 mr-1" />
             Edit
           </router-link>
           <button
             @click="confirmDelete(profile.id)"
-            class="w-full px-3 py-2 text-xs font-medium text-center text-white bg-red-500 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
+            class="w-full inline-flex items-center justify-center px-3 py-2 text-xs font-medium text-center text-white bg-red-500 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500"
           >
+            <TrashIcon class="h-4 w-4 mr-1" />
             Delete
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Placeholder for SFTP Browser -->
-    <div v-if="selectedProfileForSFTP" class="mt-8 p-4 border border-dashed border-gray-400 rounded-md bg-gray-50">
-      <h4 class="text-lg font-semibold">SFTP Browser (Placeholder)</h4>
-      <p>SFTP connection for profile: <span class="font-medium">{{ selectedProfileForSFTP.nickname }}</span> would be displayed here.</p>
-      <p class="text-sm text-gray-600 mt-2">Full SFTP browser functionality will be implemented in a later step.</p>
-      <button @click="selectedProfileForSFTP = null" class="mt-2 px-3 py-1 text-sm text-white bg-gray-500 rounded hover:bg-gray-600">Close SFTP Placeholder</button>
-    </div>
+    <!-- SFTP File Browser Modal -->
+    <SFTPFileBrowser
+      v-if="profileForSFTPModal"
+      :is-open="isSFTPModalOpen"
+      :profile="profileForSFTPModal"
+      @close="handleCloseSFTPModal"
+    />
 
   </div>
 </template>
@@ -126,8 +133,16 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { sshProfileService } from '../services/api';
-import { sftpService } from '../services/sftpService'; // Ensure this path is correct
 import type { SSHProfile } from '../types';
+import SFTPFileBrowser from '../../components/SFTPFileBrowser.vue';
+import { 
+  MagnifyingGlassIcon, 
+  PlusIcon, 
+  PlayIcon, 
+  FolderOpenIcon, 
+  PencilSquareIcon, 
+  TrashIcon 
+} from '@heroicons/vue/24/outline';
 
 const router = useRouter();
 
@@ -135,12 +150,10 @@ const profiles = ref<SSHProfile[]>([]);
 const isLoading = ref(true);
 const searchTerm = ref('');
 const errorMessage = ref<string | null>(null);
-const successMessage = ref<string | null>(null); // For temporary success messages e.g. after delete
+const successMessage = ref<string | null>(null);
 
-const sftpErrorMessage = ref<string | null>(null);
-// const showSFTPBrowser = ref(false); // Not fully used yet, SFTP view is just a placeholder div for now
-const selectedProfileForSFTP = ref<SSHProfile | null>(null);
-
+const profileForSFTPModal = ref<SSHProfile | null>(null);
+const isSFTPModalOpen = ref(false);
 
 const filteredProfiles = computed(() => {
   if (!searchTerm.value.trim()) {
@@ -181,9 +194,7 @@ const handleDelete = async (profileId: number) => {
   successMessage.value = null;
   try {
     await sshProfileService.delete(profileId);
-    // Reload profiles or filter locally
-    // profiles.value = profiles.value.filter((profile) => profile.id !== profileId);
-    await loadProfiles(); // Reload to ensure consistency
+    await loadProfiles(); 
     successMessage.value = 'Profile deleted successfully.';
     setTimeout(() => successMessage.value = null, 3000);
   } catch (error: any) {
@@ -195,30 +206,14 @@ const handleConnectSSH = (profile: SSHProfile) => {
   router.push({ name: 'TerminalConnection', params: { id: profile.id }});
 };
 
-const handleOpenSFTP = async (profile: SSHProfile) => {
-  selectedProfileForSFTP.value = profile;
-  sftpErrorMessage.value = null;
-  successMessage.value = null; // Clear other messages
-  console.log("SFTP for selected profile: ", profile.nickname);
-  
-  // For now, this just sets the selected profile and logs.
-  // The actual SFTP browser UI and connection logic will be in Step 7.
-  // Example of how it might be called (but not fully implemented here):
-  try {
-    // showSFTPBrowser.value = true; // This would toggle a modal or dedicated view
-    const sftpData = await sftpService.connectAndBrowse(profile.id);
-    console.log('SFTP Data (mock):', sftpData);
-    successMessage.value = `SFTP "connected" for ${profile.nickname}. (Mock data logged)`;
-    // In a real app, you'd pass sftpData to an SFTP browser component
-  } catch (error: any) {
-    sftpErrorMessage.value = error.message || 'Failed to initiate SFTP connection.';
-    selectedProfileForSFTP.value = null; // Clear selection on error
-    // showSFTPBrowser.value = false;
-  }
-   setTimeout(() => { // Clear messages after some time
-        successMessage.value = null;
-        // sftpErrorMessage.value = null; // Keep SFTP error until next attempt?
-    }, 5000);
+const handleOpenSFTPModal = (profile: SSHProfile) => {
+  profileForSFTPModal.value = profile;
+  isSFTPModalOpen.value = true;
+};
+
+const handleCloseSFTPModal = () => {
+  isSFTPModalOpen.value = false;
+  profileForSFTPModal.value = null; 
 };
 
 const avatarColors = [
@@ -236,7 +231,6 @@ const getAvatarBgClass = (nickname: string) => {
 </script>
 
 <style scoped>
-/* Additional specific styles can go here if Tailwind classes are not sufficient */
 .truncate {
   overflow: hidden;
   text-overflow: ellipsis;

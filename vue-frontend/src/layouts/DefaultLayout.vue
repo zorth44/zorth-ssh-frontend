@@ -16,22 +16,25 @@
             <template v-if="isAuthenticated">
               <router-link
                 to="/dashboard"
-                class="px-3 py-2 text-gray-700 rounded hover:bg-gray-200 hover:text-blue-600"
+                class="flex items-center px-3 py-2 text-gray-700 rounded hover:bg-gray-200 hover:text-blue-600"
                 active-class="font-bold text-blue-600"
               >
+                <HomeIcon class="h-5 w-5 mr-1" />
                 Dashboard
               </router-link>
               <router-link
                 to="/profiles"
-                class="px-3 py-2 text-gray-700 rounded hover:bg-gray-200 hover:text-blue-600"
+                class="flex items-center px-3 py-2 text-gray-700 rounded hover:bg-gray-200 hover:text-blue-600"
                 active-class="font-bold text-blue-600"
               >
+                <UserGroupIcon class="h-5 w-5 mr-1" />
                 Profiles
               </router-link>
               <button
                 @click="handleLogout"
-                class="px-3 py-2 text-gray-700 bg-red-100 rounded hover:bg-red-200 hover:text-red-700"
+                class="flex items-center px-3 py-2 text-gray-700 bg-red-100 rounded hover:bg-red-200 hover:text-red-700"
               >
+                <ArrowLeftOnRectangleIcon class="h-5 w-5 mr-1" />
                 Logout
               </button>
               <span v-if="user" class="text-sm text-gray-600">
@@ -42,18 +45,20 @@
             <template v-else>
               <router-link
                 to="/login"
-                class="px-3 py-2 text-gray-700 rounded hover:bg-gray-200 hover:text-blue-600"
+                class="flex items-center px-3 py-2 text-gray-700 rounded hover:bg-gray-200 hover:text-blue-600"
                 active-class="font-bold text-blue-600"
               >
+                <ArrowRightOnRectangleIcon class="h-5 w-5 mr-1" />
                 Login
               </router-link>
               <!-- Optional: Register Link -->
               <!-- 
               <router-link 
                 to="/register" 
-                class="px-3 py-2 text-gray-700 rounded hover:bg-gray-200 hover:text-blue-600"
+                class="flex items-center px-3 py-2 text-gray-700 rounded hover:bg-gray-200 hover:text-blue-600"
                 active-class="font-bold text-blue-600"
               >
+                Register Icon Here
                 Register
               </router-link>
               -->
@@ -75,6 +80,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
+import { HomeIcon, UserGroupIcon, ArrowLeftOnRectangleIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline';
 
 const { isAuthenticated, user, logout } = useAuth();
 const router = useRouter();

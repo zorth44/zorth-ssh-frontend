@@ -23,7 +23,6 @@ export interface AuthResponse {
   user: User;
 }
 
-// Keeping other types for potential future use, though not strictly required by the current subtask.
 export interface WebSocketMessage {
   type: 'CONNECT' | 'INPUT' | 'RESIZE' | 'DISCONNECT';
   profileId?: string;
@@ -37,3 +36,6 @@ export interface WebSocketResponse {
   data?: string;
   message?: string;
 }
+
+// Export SFTP types
+export * from './sftp';

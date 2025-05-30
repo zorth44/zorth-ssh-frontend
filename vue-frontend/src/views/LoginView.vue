@@ -64,6 +64,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuth } from '../composables/useAuth';
+import { EyeIcon, EyeSlashIcon } from '@heroicons/vue/24/outline';
 
 const username = ref('');
 const password = ref('');

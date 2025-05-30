@@ -5,8 +5,9 @@
       <h1 class="text-3xl font-semibold text-gray-800">SSH Profiles</h1>
       <router-link
         to="/profiles/new"
-        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
       >
+        <PlusIcon class="h-5 w-5 mr-2" />
         New Profile
       </router-link>
     </div>
@@ -67,20 +68,23 @@
         <div class="p-5 bg-gray-50 border-t border-gray-200 flex items-center justify-end space-x-3">
           <router-link
             :to="'/terminal/' + profile.id"
-            class="px-3 py-1.5 text-xs font-medium text-center text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+            class="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium text-center text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
           >
+            <PlayIcon class="h-4 w-4 mr-1" />
             Connect
           </router-link>
           <router-link
             :to="'/profiles/edit/' + profile.id"
-            class="px-3 py-1.5 text-xs font-medium text-center text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
+            class="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium text-center text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
           >
+            <PencilSquareIcon class="h-4 w-4 mr-1" />
             Edit
           </router-link>
           <button
             @click="confirmDelete(profile.id)"
-            class="px-3 py-1.5 text-xs font-medium text-center text-white bg-red-500 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+            class="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium text-center text-white bg-red-500 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
           >
+            <TrashIcon class="h-4 w-4 mr-1" />
             Delete
           </button>
         </div>
@@ -93,6 +97,7 @@
 import { ref, onMounted } from 'vue';
 import { sshProfileService } from '../services/api';
 import type { SSHProfile } from '../types';
+import { PlusIcon, PlayIcon, PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline';
 // useRouter might be needed if we redirect after delete, but for now, just updating list.
 // import { useRouter } from 'vue-router';
 
