@@ -20,7 +20,7 @@ class WebSocketService {
     }
 
     this.isConnecting = true;
-    const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:8080';
+    const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:12305';
     
     console.log('Creating STOMP client with URL:', `${WS_URL}/api/ws`);
     

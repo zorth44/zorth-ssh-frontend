@@ -146,7 +146,7 @@ export function useTerminal(profileId: string) {
 
     setConnectionAttempted(true);
     console.log('Connecting to WebSocket...');
-    const WS_URL = 'http://localhost:8080';
+    const WS_URL = 'http://localhost:12305';
     
     const stompClient = new Client({
       webSocketFactory: () => new SockJS(`${WS_URL}/api/ws`),

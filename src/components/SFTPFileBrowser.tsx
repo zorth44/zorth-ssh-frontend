@@ -120,10 +120,14 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
     if (!file) return;
 
     console.log('Starting file upload:', file.name);
+    
+    // Generate transferId on frontend for immediate progress tracking
+    const transferId = generateTransferId();
+    
     try {
-      // Show initial transfer state
+      // Show initial transfer state immediately
       const initialTransfer: TransferProgress = {
-        sessionId: 'pending',
+        sessionId: transferId,
         fileName: file.name,
         operation: 'UPLOAD',
         status: 'STARTING',
@@ -138,28 +142,26 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
       };
       setTransfers(prev => [...prev, initialTransfer]);
 
-      const transferId = await sftpService.uploadFile(
+      await sftpService.uploadFile(
         profile.id,
         currentPath,
         file,
         (progress) => {
           console.log('Received upload progress:', progress);
           setTransfers(prev => {
-            const index = prev.findIndex(t => 
-              t.sessionId === progress.sessionId || 
-              (t.sessionId === 'pending' && t.fileName === progress.fileName)
-            );
+            const index = prev.findIndex(t => t.sessionId === transferId);
             
             if (index >= 0) {
               const updated = [...prev];
               updated[index] = {
                 ...progress,
-                sessionId: progress.sessionId,
+                sessionId: transferId, // Keep our frontend transferId
                 percentage: Math.round((progress.transferredBytes / progress.totalBytes) * 100)
               };
               return updated;
             }
-            return [...prev, progress];
+            // If for some reason we can't find our transfer, don't create a new one
+            return prev;
           });
 
           // Handle transfer completion
@@ -177,8 +179,8 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
             
             // Remove the transfer progress after a delay
             setTimeout(() => {
-              setTransfers(prev => prev.filter(t => t.sessionId !== progress.sessionId));
-            }, 2000);
+              setTransfers(prev => prev.filter(t => t.sessionId !== transferId));
+            }, 3000);
           } else if (progress.status === 'FAILED') {
             toast({
               title: '上传失败',
@@ -190,7 +192,7 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
             
             // Remove failed transfer after a delay
             setTimeout(() => {
-              setTransfers(prev => prev.filter(t => t.sessionId !== progress.sessionId));
+              setTransfers(prev => prev.filter(t => t.sessionId !== transferId));
             }, 3000);
           }
         }
@@ -208,14 +210,39 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
       });
       
       // Remove failed transfer from the list
-      setTransfers(prev => prev.filter(t => t.fileName !== file.name));
+      setTransfers(prev => prev.filter(t => t.sessionId !== transferId));
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
   const handleFileDownload = async (file: SFTPFileInfo) => {
     if (file.isDirectory) return;
     
+    // Generate transferId on frontend for immediate progress tracking
+    const transferId = generateTransferId();
+    
     try {
+      // Show initial transfer state immediately
+      const initialTransfer: TransferProgress = {
+        sessionId: transferId,
+        fileName: file.name,
+        operation: 'DOWNLOAD',
+        status: 'STARTING',
+        percentage: 0,
+        transferredBytes: 0,
+        totalBytes: file.size,
+        speedBytesPerSecond: 0,
+        speedFormatted: '0 B/s',
+        estimatedRemainingSeconds: 0,
+        startTime: new Date().toISOString(),
+        lastUpdate: new Date().toISOString()
+      };
+      setTransfers(prev => [...prev, initialTransfer]);
+
       toast({
         title: '下载开始',
         description: `正在下载 ${file.name}`,
@@ -230,36 +257,46 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
         file.name,
         (progress) => {
           setTransfers(prev => {
-            const index = prev.findIndex(t => t.sessionId === progress.sessionId);
+            const index = prev.findIndex(t => t.sessionId === transferId);
             if (index >= 0) {
               const updated = [...prev];
-              updated[index] = progress;
+              updated[index] = {
+                ...progress,
+                sessionId: transferId, // Keep our frontend transferId
+              };
               return updated;
             } else {
-              return [...prev, progress];
+              // If for some reason we can't find our transfer, don't create a new one
+              return prev;
             }
           });
 
           // Remove completed transfers after delay
           if (progress.status === 'COMPLETED') {
+            toast({
+              title: '下载完成',
+              description: `文件 ${file.name} 下载成功`,
+              status: 'success',
+              duration: 3000,
+              isClosable: true,
+            });
             setTimeout(() => {
-              setTransfers(prev => prev.filter(t => t.sessionId !== progress.sessionId));
+              setTransfers(prev => prev.filter(t => t.sessionId !== transferId));
             }, 3000);
           } else if (progress.status === 'FAILED') {
+            toast({
+              title: '下载失败',
+              description: progress.errorMessage || '文件下载失败',
+              status: 'error',
+              duration: 5000,
+              isClosable: true,
+            });
             setTimeout(() => {
-              setTransfers(prev => prev.filter(t => t.sessionId !== progress.sessionId));
+              setTransfers(prev => prev.filter(t => t.sessionId !== transferId));
             }, 5000);
           }
         }
       );
-      
-      toast({
-        title: '下载完成',
-        description: `文件 ${file.name} 下载成功`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
     } catch (error) {
       console.error('Download error:', error);
       toast({
@@ -269,6 +306,9 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
         duration: 3000,
         isClosable: true,
       });
+      
+      // Remove failed transfer from the list
+      setTransfers(prev => prev.filter(t => t.sessionId !== transferId));
     }
   };
 
@@ -280,6 +320,10 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
     const parentPath = currentPath.split('/').filter(Boolean).slice(0, -1).join('/');
     const newPath = parentPath ? `/${parentPath}` : '/';
     navigateToPath(newPath);
+  };
+
+  const generateTransferId = (): string => {
+    return `transfer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -372,30 +416,85 @@ export const SFTPFileBrowser: React.FC<SFTPFileBrowserProps> = ({
 
             {/* Transfer Progress Panel */}
             {transfers.length > 0 && (
-              <Box p={3} bg="blue.50" borderRadius="md" border="1px" borderColor="blue.200">
-                <Text fontWeight="bold" mb={2}>文件传输</Text>
-                <VStack spacing={2}>
+              <Box p={4} bg="blue.50" borderRadius="md" border="1px" borderColor="blue.200">
+                <Text fontWeight="bold" mb={3} color="blue.700">文件传输</Text>
+                <VStack spacing={3}>
                   {transfers.map(transfer => (
-                    <Box key={transfer.sessionId} p={2} bg="white" borderRadius="md">
-                      <Flex align="center" justify="space-between">
-                        <Text fontSize="sm">
-                          {transfer.fileName} - {transfer.operation === 'UPLOAD' ? '上传' : '下载'}
-                        </Text>
-                        <Text fontSize="sm" color={transfer.status === 'FAILED' ? 'red.500' : 'gray.600'}>
-                          {transfer.percentage.toFixed(1)}% ({transfer.speedFormatted})
-                        </Text>
-                      </Flex>
-                      {transfer.status === 'IN_PROGRESS' && (
-                        <Button
-                          size="xs"
-                          colorScheme="red"
-                          variant="ghost"
-                          onClick={() => sftpService.cancelTransfer(transfer.sessionId)}
-                          mt={1}
-                        >
-                          取消
-                        </Button>
-                      )}
+                    <Box key={transfer.sessionId} p={3} bg="white" borderRadius="md" shadow="sm" w="100%">
+                      <VStack spacing={2} align="stretch">
+                        <Flex align="center" justify="space-between">
+                          <HStack spacing={2}>
+                            <Icon as={transfer.operation === 'UPLOAD' ? FiUpload : FiDownload} 
+                                  color={transfer.operation === 'UPLOAD' ? 'blue.500' : 'green.500'} />
+                            <Text fontSize="sm" fontWeight="medium">
+                              {transfer.fileName}
+                            </Text>
+                            <Badge 
+                              colorScheme={transfer.operation === 'UPLOAD' ? 'blue' : 'green'} 
+                              size="sm"
+                            >
+                              {transfer.operation === 'UPLOAD' ? '上传' : '下载'}
+                            </Badge>
+                          </HStack>
+                          <HStack spacing={2}>
+                            <Text fontSize="sm" color="gray.600">
+                              {transfer.percentage.toFixed(1)}%
+                            </Text>
+                            {transfer.status === 'IN_PROGRESS' && (
+                              <Button
+                                size="xs"
+                                colorScheme="red"
+                                variant="ghost"
+                                onClick={() => sftpService.cancelTransfer(transfer.sessionId)}
+                              >
+                                取消
+                              </Button>
+                            )}
+                          </HStack>
+                        </Flex>
+                        
+                        {/* Progress Bar */}
+                        <Box w="100%" bg="gray.200" borderRadius="full" h="2">
+                          <Box
+                            bg={transfer.status === 'FAILED' ? 'red.500' : 
+                                transfer.status === 'COMPLETED' ? 'green.500' : 'blue.500'}
+                            h="2"
+                            borderRadius="full"
+                            w={`${Math.min(transfer.percentage, 100)}%`}
+                            transition="width 0.3s ease"
+                          />
+                        </Box>
+                        
+                        {/* Transfer Details */}
+                        <Flex justify="space-between" fontSize="xs" color="gray.600">
+                          <Text>
+                            {formatFileSize(transfer.transferredBytes)} / {formatFileSize(transfer.totalBytes)}
+                          </Text>
+                          <Text>
+                            {transfer.speedFormatted}
+                            {transfer.estimatedRemainingSeconds > 0 && transfer.status === 'IN_PROGRESS' && (
+                              <span> • 剩余 {Math.ceil(transfer.estimatedRemainingSeconds)}秒</span>
+                            )}
+                          </Text>
+                        </Flex>
+                        
+                        {/* Status and Error Message */}
+                        {transfer.status === 'FAILED' && transfer.errorMessage && (
+                          <Text fontSize="xs" color="red.500" mt={1}>
+                            错误: {transfer.errorMessage}
+                          </Text>
+                        )}
+                        {transfer.status === 'COMPLETED' && (
+                          <Text fontSize="xs" color="green.500" mt={1}>
+                            传输完成
+                          </Text>
+                        )}
+                        {transfer.status === 'CANCELLED' && (
+                          <Text fontSize="xs" color="orange.500" mt={1}>
+                            传输已取消
+                          </Text>
+                        )}
+                      </VStack>
                     </Box>
                   ))}
                 </VStack>

@@ -9,7 +9,7 @@ import {
 } from '@/types/sftp';
 
 class SFTPService {
-  private baseUrl = 'http://localhost:8080/api';
+  private baseUrl = 'http://localhost:12305/api';
   private stompClient: Client | null = null;
   private subscriptions = new Map<string, any>();
 
@@ -96,22 +96,14 @@ class SFTPService {
     onProgress?: (progress: TransferProgress) => void
   ): Promise<string> {
     try {
+      // Generate transferId on frontend
+      const transferId = this.generateTransferId();
+
       // Ensure WebSocket is connected before proceeding
       if (onProgress) {
         await this.connectWebSocket();
-      }
-
-      // 1. Prepare upload and get transferId
-      const prepareRes = await fetch(
-        `${this.baseUrl}/sftp/${profileId}/prepare-upload?path=${encodeURIComponent(remotePath)}&fileName=${encodeURIComponent(file.name)}&totalBytes=${file.size}`,
-        { method: 'POST' }
-      );
-      const prepareResult: SFTPResponse<{ transferId: string }> = await prepareRes.json();
-      if (!prepareResult.success) throw new Error(prepareResult.message);
-      const transferId = prepareResult.data.transferId;
-
-      // 2. Subscribe to progress BEFORE starting the upload
-      if (onProgress) {
+        
+        // Subscribe to progress BEFORE starting the upload
         this.subscribeToProgress(transferId, (progress) => {
           onProgress(progress);
           // Unsubscribe when transfer is completed or failed
@@ -121,11 +113,11 @@ class SFTPService {
         });
       }
 
-      // 3. Upload file, passing transferId
+      // Upload file directly with transferId (no prepare-upload needed)
       const formData = new FormData();
       formData.append('file', file);
       const uploadRes = await fetch(
-        `${this.baseUrl}/sftp/${profileId}/upload?path=${encodeURIComponent(remotePath)}&transferId=${transferId}`,
+        `${this.baseUrl}/sftp/${profileId}/upload?path=${encodeURIComponent(remotePath)}&transferId=${transferId}&fileName=${encodeURIComponent(file.name)}&totalBytes=${file.size}`,
         { method: 'POST', body: formData }
       );
       const uploadResult: SFTPResponse<any> = await uploadRes.json();
@@ -146,10 +138,18 @@ class SFTPService {
     onProgress?: (progress: TransferProgress) => void
   ): Promise<void> {
     try {
-      // Ensure WebSocket is connected
-      await this.connectWebSocket();
+      // Generate transferId on frontend
+      const transferId = this.generateTransferId();
 
-      const downloadUrl = `${this.baseUrl}/sftp/${profileId}/download?path=${encodeURIComponent(filePath)}`;
+      // Ensure WebSocket is connected
+      if (onProgress) {
+        await this.connectWebSocket();
+        
+        // Subscribe to progress updates before starting download
+        this.subscribeToProgress(transferId, onProgress);
+      }
+
+      const downloadUrl = `${this.baseUrl}/sftp/${profileId}/download?path=${encodeURIComponent(filePath)}&transferId=${transferId}`;
       
       const response = await fetch(downloadUrl, {
         method: 'GET',
@@ -157,14 +157,6 @@ class SFTPService {
 
       if (!response.ok) {
         throw new Error(`Download failed: ${response.statusText}`);
-      }
-
-      // Get the transfer ID from response headers
-      const transferId = response.headers.get('X-Transfer-Id');
-      
-      // Subscribe to progress updates if callback provided and transfer ID exists
-      if (onProgress && transferId) {
-        this.subscribeToProgress(transferId, onProgress);
       }
 
       // Get the file as a blob
@@ -326,6 +318,11 @@ class SFTPService {
       console.error('Error cancelling transfer:', error);
       return false;
     }
+  }
+
+  // Generate unique transfer ID
+  private generateTransferId(): string {
+    return `transfer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }
 

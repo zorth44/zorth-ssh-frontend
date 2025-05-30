@@ -194,7 +194,7 @@ const TerminalSession: React.FC<{
     if (terminal) {
       terminal.writeln('🔄 Connecting to WebSocket...');
     }
-    const WS_URL = 'http://localhost:8080';
+    const WS_URL = 'http://localhost:12305';
     const stompClient = new Client({
       webSocketFactory: () => new SockJS(`${WS_URL}/api/ws`),
       debug: (str) => console.log('STOMP Debug:', str),
@@ -500,7 +500,7 @@ const TerminalPage: React.FC = () => {
   // 获取SSH配置列表
   const fetchProfiles = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/profiles');
+      const response = await fetch('http://localhost:12305/api/profiles');
       if (response.ok) {
         const data = await response.json();
         setProfiles(data);

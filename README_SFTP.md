@@ -62,7 +62,7 @@ The frontend integrates with your existing backend controllers:
 
 ## Testing
 
-1. Start your backend server (port 8080)
+1. Start your backend server (port 12305)
 2. Start the frontend dev server: `npm run dev`
 3. Create an SSH profile if you haven't already
 4. Click "SFTP浏览器" on any profile to open the file browser
