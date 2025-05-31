@@ -1,5 +1,5 @@
 import apiClient from './api'; // Using the global apiClient
-import { Client, IFrame, StompSubscription } from '@stomp/stompjs';
+import { Client, type IFrame, type StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import type {
   SFTPFileInfo,

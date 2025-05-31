@@ -1,6 +1,6 @@
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { WebSocketMessage, WebSocketResponse } from '../types/index'; // Adjusted import path
+import type { WebSocketMessage, WebSocketResponse } from '../types/index'; // Adjusted import path
 
 class WebSocketService {
   private client: Client | null = null;

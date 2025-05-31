@@ -134,7 +134,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { sshProfileService } from '../services/api';
 import type { SSHProfile } from '../types';
-import SFTPFileBrowser from '../../components/SFTPFileBrowser.vue';
+import SFTPFileBrowser from '../components/SFTPFileBrowser.vue';
 import { 
   MagnifyingGlassIcon, 
   PlusIcon, 
